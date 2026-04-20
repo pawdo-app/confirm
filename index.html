@@ -112,12 +112,26 @@
         <button id="submit">Update password</button>
       `;
 
-      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { flowType: 'pkce', detectSessionInUrl: false }
+      });
 
+      const code = params.get("code");
       const accessToken = params.get("access_token");
       const refreshToken = params.get("refresh_token");
 
-      if (accessToken && refreshToken) {
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          card.innerHTML = `
+            <div class="emoji">⚠️</div>
+            <h1 class="error">Link invalid or expired</h1>
+            <p>This link is no longer valid. Please return to PawDo and request a new one.</p>
+            <p class="hint">Reset links expire after about an hour.</p>
+          `;
+          return;
+        }
+      } else if (accessToken && refreshToken) {
         await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
       }
 
@@ -144,7 +158,7 @@
 
     if (params.get("error") || params.get("error_code")) {
       renderError();
-    } else if (params.get("type") === "recovery" || params.get("access_token")) {
+    } else if (params.get("code") || params.get("type") === "recovery" || params.get("access_token")) {
       renderResetForm();
     } else {
       renderSuccess();
